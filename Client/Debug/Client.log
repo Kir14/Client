@@ -1,0 +1,9 @@
+﻿  Client.cpp
+Client.obj : error LNK2019: ссылка на неразрешенный внешний символ __imp__connect@12 в функции "int __stdcall Login(struct HWND__ *,unsigned int,unsigned int,long)" (?Login@@YGHPAUHWND__@@IIJ@Z)
+Client.obj : error LNK2019: ссылка на неразрешенный внешний символ __imp__htons@4 в функции "int __stdcall Login(struct HWND__ *,unsigned int,unsigned int,long)" (?Login@@YGHPAUHWND__@@IIJ@Z)
+Client.obj : error LNK2019: ссылка на неразрешенный внешний символ __imp__recv@16 в функции "long __stdcall WndProc(struct HWND__ *,unsigned int,unsigned int,long)" (?WndProc@@YGJPAUHWND__@@IIJ@Z)
+Client.obj : error LNK2019: ссылка на неразрешенный внешний символ __imp__send@16 в функции "long __stdcall WndProc(struct HWND__ *,unsigned int,unsigned int,long)" (?WndProc@@YGJPAUHWND__@@IIJ@Z)
+Client.obj : error LNK2019: ссылка на неразрешенный внешний символ __imp__socket@12 в функции "int __stdcall Login(struct HWND__ *,unsigned int,unsigned int,long)" (?Login@@YGHPAUHWND__@@IIJ@Z)
+Client.obj : error LNK2019: ссылка на неразрешенный внешний символ __imp__WSAStartup@8 в функции "long __stdcall WndProc(struct HWND__ *,unsigned int,unsigned int,long)" (?WndProc@@YGJPAUHWND__@@IIJ@Z)
+Client.obj : error LNK2019: ссылка на неразрешенный внешний символ _InetPtonW@12 в функции "int __stdcall Login(struct HWND__ *,unsigned int,unsigned int,long)" (?Login@@YGHPAUHWND__@@IIJ@Z)
+G:\project\Client\Debug\Client.exe : fatal error LNK1120: неразрешенных внешних элементов: 7
