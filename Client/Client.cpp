@@ -3,6 +3,8 @@
 
 #include "framework.h"
 #include "Client.h"
+
+#pragma comment(lib,"ws2_32.lib")
 #include <CommCtrl.h>
 #include <WinSock2.h>
 #include <WS2tcpip.h>
@@ -19,6 +21,7 @@ SOCKET Client;
 static HWND hEdit, hText;
 static HWND hBtn;
 TCHAR str[1024];
+HANDLE hThr;
 
 // Отправить объявления функций, включенных в этот модуль кода:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
@@ -38,6 +41,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	UNREFERENCED_PARAMETER(lpCmdLine);
 
 	// TODO: Разместите код здесь.
+
+	
 
 	// Инициализация глобальных строк
 	LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
@@ -67,6 +72,32 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	return (int)msg.wParam;
 }
 
+
+
+void GetMessageFromServer()
+{
+	
+	char buffer[1024];
+	TCHAR clean_message[1024];
+	
+	
+	for(;;)
+	{
+		int i = 0;
+		memset(buffer, 0, 1024);
+		int result = recv(Client, buffer, 1024, 0);
+		while (buffer[i] != '\0')
+		{
+			clean_message[i] = (TCHAR)buffer[i];
+			i++;
+		}
+		clean_message[i++] = L'\0';
+		SetWindowText(hText, clean_message);
+
+	}
+	delete[]buffer;
+
+}
 
 
 //
@@ -136,13 +167,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 //
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-	WSADATA data;
-	WORD version = MAKEWORD(2, 2);
-	int res = WSAStartup(version, &data);
-	if (res != 0)
-	{
-		return 1;
-	}
+	
 	
 	switch (message)
 	{
@@ -170,22 +195,18 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		{
 			GetWindowText(hEdit, str, 1024);
 			SetWindowText(hEdit, L"");
+			int k = strlen((char*)str);
+			str[k++] = _T('\0');
 
 			////ООООЧЧЧЕЕЕННННЬЬЬЬ    ИНТЕРЕСНО/////
 			////////////////////////////////////////////////////////
-			if (SOCKET_ERROR == (send(Client, (char*)&str, 1024, 0)))
+			if (SOCKET_ERROR == (send(Client, (char*)str, 1024, 0)))
 			{
 				// Error...
-				
+					
 				// ...
 			}
-			int actual_len = 0;
-			if (SOCKET_ERROR == (actual_len = recv(Client, (char*)&str, 1024, 0)))
-			{
-				// Error...
-				SetWindowText(hText, str);
-				// ...
-			}
+			
 
 
 		}
@@ -201,6 +222,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
 			break;
 		case IDM_EXIT:
+			TerminateThread(hThr, 0);
+			closesocket(Client);
 			DestroyWindow(hWnd);
 			break;
 		default:
@@ -252,6 +275,13 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 // Обработчик сообщений для окна "Login".
 INT_PTR CALLBACK Login(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
+	WSADATA data;
+	WORD version = MAKEWORD(2, 2);
+	int res = WSAStartup(version, &data);
+	if (res != 0)
+	{
+		return 1;
+	}
 	UNREFERENCED_PARAMETER(lParam);
 	switch (message)
 	{
@@ -263,12 +293,14 @@ INT_PTR CALLBACK Login(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 		{
 			int result;
 		case IDOK:
-			Client = socket(AF_INET, SOCK_STREAM, 0);
+			
 			struct sockaddr_in peer;
 			peer.sin_family = AF_INET;
 			peer.sin_port = htons(8488);
 			InetPton(AF_INET, _T("127.0.0.1"), &peer.sin_addr.s_addr);
-			result = connect(Client, (struct sockaddr*) & peer, sizeof(peer));
+
+			Client = socket(AF_INET, SOCK_STREAM, 0);
+			result = connect(Client, (sockaddr*)&peer, sizeof(peer));
 			if (result)
 			{
 				perror("Error calling connect");
@@ -277,6 +309,7 @@ INT_PTR CALLBACK Login(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 			else
 			{
 				SetWindowText(hText,L"Connect");
+				hThr = CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)GetMessageFromServer, NULL, NULL, NULL);
 			}
 
 			EndDialog(hDlg, LOWORD(wParam));
@@ -291,3 +324,6 @@ INT_PTR CALLBACK Login(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 	}
 	return (INT_PTR)FALSE;
 }
+
+
+
