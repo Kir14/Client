@@ -193,14 +193,19 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	{
 		if (lParam == (LPARAM)hBtn)
 		{
+			LPWSTR buf[1024];
+			char buffer[1024];
 			GetWindowText(hEdit, str, 1024);
 			SetWindowText(hEdit, L"");
-			int k = strlen((char*)str);
-			str[k++] = _T('\0');
+
+			WideCharToMultiByte(CP_ACP, 0, str, sizeof(str), buffer, sizeof(buffer), NULL, NULL);
+
+			int k = strlen(buffer);
+			buffer[k] = ('\0');
 
 			////ООООЧЧЧЕЕЕННННЬЬЬЬ    ИНТЕРЕСНО/////
 			////////////////////////////////////////////////////////
-			if (SOCKET_ERROR == (send(Client, (char*)str, 1024, 0)))
+			if (SOCKET_ERROR == (send(Client, buffer, 1024, 0)))
 			{
 				// Error...
 					
@@ -223,6 +228,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			break;
 		case IDM_EXIT:
 			TerminateThread(hThr, 0);
+			shutdown(Client, 0);
 			closesocket(Client);
 			DestroyWindow(hWnd);
 			break;
