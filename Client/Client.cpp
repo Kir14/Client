@@ -8,6 +8,8 @@
 #include <CommCtrl.h>
 #include <WinSock2.h>
 #include <WS2tcpip.h>
+#include <vector>
+#include <string>
 
 
 #define MAX_LOADSTRING 100
@@ -20,8 +22,14 @@ WCHAR szWindowClass[MAX_LOADSTRING];            // имя класса глав�
 SOCKET Client;
 static HWND hEdit, hText;
 static HWND hBtn;
-TCHAR str[1024];
+TCHAR clean_message[1024];
 HANDLE hThr;
+static HWND hChild;
+
+
+static std::vector<std::string> v;
+
+TCHAR ChildClassName[MAX_LOADSTRING] = _T("WinChild");
 
 // Отправить объявления функций, включенных в этот модуль кода:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
@@ -30,6 +38,7 @@ LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 
 INT_PTR CALLBACK    Login(HWND, UINT, WPARAM, LPARAM);
+LRESULT CALLBACK ChildProc(HWND, UINT, WPARAM, LPARAM);
 
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
@@ -42,7 +51,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 	// TODO: Разместите код здесь.
 
-	
+
 
 	// Инициализация глобальных строк
 	LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
@@ -76,29 +85,47 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 void GetMessageFromServer()
 {
-	
+
 	char buffer[1024];
-	TCHAR clean_message[1024];
-	
-	
-	for(;;)
+
+
+	for (;;)
 	{
 		int i = 0;
 		memset(buffer, 0, 1024);
 		int result = recv(Client, buffer, 1024, 0);
-		while (buffer[i] != '\0')
+		if (result > 0)
 		{
-			clean_message[i] = (TCHAR)buffer[i];
-			i++;
+			while (buffer[i] != '\0')
+			{
+				clean_message[i] = (TCHAR)buffer[i];
+				i++;
+			}
+			clean_message[i++] = L'\0';
+
+			v.push_back(buffer); 
+			InvalidateRect(hChild, NULL, 1);
+			UpdateWindow(hChild);
+			SetWindowText(hEdit, clean_message);
 		}
-		clean_message[i++] = L'\0';
-		SetWindowText(hText, clean_message);
 
 	}
 	delete[]buffer;
 
 }
 
+
+ATOM MyRegisterChildClass()
+{
+	WNDCLASSEX wcex = { 0 };
+	wcex.cbSize = sizeof(WNDCLASSEX);
+	wcex.lpfnWndProc = ChildProc;
+	wcex.hInstance = hInst;
+	wcex.hCursor = LoadCursor(NULL, IDC_ARROW);
+	wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+	wcex.lpszClassName =ChildClassName ;
+	return RegisterClassEx(&wcex);
+}
 
 //
 //  ФУНКЦИЯ: MyRegisterClass()
@@ -167,8 +194,8 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 //
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-	
-	
+
+
 	switch (message)
 	{
 	case WM_CREATE:
@@ -178,21 +205,29 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		hBtn = CreateWindow(L"Button", L"Отправить",
 			WS_CHILD | WS_VISIBLE | WS_BORDER,
 			0, 0, 0, 0, hWnd, (HMENU)1, hInst, NULL);
-		hText = CreateWindow(L"Edit", NULL, WS_CHILD | WS_VISIBLE | ES_READONLY |
+		/*hText = CreateWindow(L"Edit", NULL, WS_CHILD | WS_VISIBLE | ES_READONLY |
 			WS_VSCROLL | ES_LEFT | ES_MULTILINE | ES_AUTOVSCROLL | WS_BORDER,
-			0, 0, 0, 0, hWnd, (HMENU)1, hInst, NULL);
+			0, 0, 0, 0, hWnd, (HMENU)1, hInst, NULL);*/
+		MyRegisterChildClass();
+		hChild = CreateWindow(ChildClassName , NULL, WS_CHILD | WS_VSCROLL | ES_LEFT | ES_MULTILINE | ES_AUTOVSCROLL |
+			WS_DLGFRAME | WS_VISIBLE, 0, 0, 0, 0, hWnd, NULL, hInst, NULL);
 
 		break;
 	case WM_SIZE:
 		HIWORD(lParam);
 		MoveWindow(hEdit, 0, HIWORD(lParam) - 100, LOWORD(lParam) - 100, 100, TRUE);
-		MoveWindow(hBtn, LOWORD(lParam)-100, HIWORD(lParam)-100, 100, 50, TRUE);
-		MoveWindow(hText, 0, 0, LOWORD(lParam), HIWORD(lParam)-100, TRUE);
+		MoveWindow(hBtn, LOWORD(lParam) - 100, HIWORD(lParam) - 100, 100, 50, TRUE);
+
+		//MoveWindow(hText, 0, 0, LOWORD(lParam), HIWORD(lParam)-100, TRUE);
+
+		MoveWindow(hChild, 0, 0, LOWORD(lParam), HIWORD(lParam) - 100, TRUE);
+
 		break;
 	case WM_COMMAND:
 	{
 		if (lParam == (LPARAM)hBtn)
 		{
+			TCHAR str[1024];
 			LPWSTR buf[1024];
 			char buffer[1024];
 			GetWindowText(hEdit, str, 1024);
@@ -208,14 +243,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			if (SOCKET_ERROR == (send(Client, buffer, 1024, 0)))
 			{
 				// Error...
-					
+
 				// ...
 			}
-			
+
 
 
 		}
-		
+
 		int wmId = LOWORD(wParam);
 		// Разобрать выбор в меню:
 		switch (wmId)
@@ -299,14 +334,14 @@ INT_PTR CALLBACK Login(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 		{
 			int result;
 		case IDOK:
-			
+
 			struct sockaddr_in peer;
 			peer.sin_family = AF_INET;
 			peer.sin_port = htons(8488);
 			InetPton(AF_INET, _T("127.0.0.1"), &peer.sin_addr.s_addr);
 
 			Client = socket(AF_INET, SOCK_STREAM, 0);
-			result = connect(Client, (sockaddr*)&peer, sizeof(peer));
+			result = connect(Client, (sockaddr*)& peer, sizeof(peer));
 			if (result)
 			{
 				perror("Error calling connect");
@@ -314,7 +349,7 @@ INT_PTR CALLBACK Login(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 			}
 			else
 			{
-				SetWindowText(hText,L"Connect");
+				SetWindowText(hText, L"Connect");
 				hThr = CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)GetMessageFromServer, NULL, NULL, NULL);
 			}
 
@@ -331,5 +366,38 @@ INT_PTR CALLBACK Login(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 	return (INT_PTR)FALSE;
 }
 
+
+
+
+LRESULT CALLBACK ChildProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+	PAINTSTRUCT ps;
+	HDC hdc;
+	const int LineHeight = 16;
+	std::vector<std::string>::iterator it;
+	int y;
+
+	switch (message)
+	{
+	case WM_CREATE:
+		v.push_back("Hello first line");
+		break;
+	case WM_LBUTTONDOWN:
+
+		break;
+	case WM_PAINT:
+		
+		hdc = BeginPaint(hWnd, &ps);
+		for (y = 0, it = v.begin(); it < v.end(); ++it, y += LineHeight)
+		{
+			TextOutA(hdc, 0, y, it->data(), it->length());
+		}
+		EndPaint(hWnd, &ps);
+
+		break;
+	default: return DefWindowProc(hWnd, message, wParam, lParam);
+	}
+	return 0;
+}
 
 
