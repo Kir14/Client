@@ -26,6 +26,8 @@ TCHAR clean_message[1024];
 HANDLE hThr;
 static HWND hChild;
 
+WCHAR name[100], server_ip[100];
+UINT server_port;
 
 static std::vector<std::string> v;
 
@@ -106,11 +108,9 @@ void GetMessageFromServer()
 			v.push_back(buffer); 
 			InvalidateRect(hChild, NULL, 1);
 			UpdateWindow(hChild);
-			SetWindowText(hEdit, clean_message);
 		}
 
 	}
-	delete[]buffer;
 
 }
 
@@ -228,7 +228,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		if (lParam == (LPARAM)hBtn)
 		{
 			TCHAR str[1024];
-			LPWSTR buf[1024];
 			char buffer[1024];
 			GetWindowText(hEdit, str, 1024);
 			SetWindowText(hEdit, L"");
@@ -265,6 +264,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			TerminateThread(hThr, 0);
 			shutdown(Client, 0);
 			closesocket(Client);
+			v.clear();
 			DestroyWindow(hWnd);
 			break;
 		default:
@@ -334,11 +334,13 @@ INT_PTR CALLBACK Login(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 		{
 			int result;
 		case IDOK:
-
+			GetDlgItemText(hDlg, IDC_EDIT_NAME, name, 100);
+			GetDlgItemText(hDlg, IDC_EDIT_IP, server_ip, 100);//"127.0.0.1"
+			server_port =  GetDlgItemInt(hDlg, IDC_EDIT_PORT,NULL,FALSE);//8488
 			struct sockaddr_in peer;
 			peer.sin_family = AF_INET;
-			peer.sin_port = htons(8488);
-			InetPton(AF_INET, _T("127.0.0.1"), &peer.sin_addr.s_addr);
+			peer.sin_port = htons(server_port);
+			InetPton(AF_INET, server_ip, &peer.sin_addr.s_addr);
 
 			Client = socket(AF_INET, SOCK_STREAM, 0);
 			result = connect(Client, (sockaddr*)& peer, sizeof(peer));
@@ -349,7 +351,9 @@ INT_PTR CALLBACK Login(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 			}
 			else
 			{
-				SetWindowText(hText, L"Connect");
+				char buffer[100];
+				WideCharToMultiByte(CP_ACP, 0, name, sizeof(name), buffer, sizeof(buffer), NULL, NULL);
+				send(Client, buffer, 100, 0);
 				hThr = CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)GetMessageFromServer, NULL, NULL, NULL);
 			}
 
@@ -390,7 +394,9 @@ LRESULT CALLBACK ChildProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam
 		hdc = BeginPaint(hWnd, &ps);
 		for (y = 0, it = v.begin(); it < v.end(); ++it, y += LineHeight)
 		{
-			TextOutA(hdc, 0, y, it->data(), it->length());
+			char buf[1024];
+			strcpy_s(buf, 1024 , it->c_str());
+			TextOutA(hdc, 0, y, buf, it->length());
 		}
 		EndPaint(hWnd, &ps);
 

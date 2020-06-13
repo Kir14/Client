@@ -1,4 +1,2 @@
 ﻿  Client.cpp
-G:\project\Client\Client\Client.cpp(114,16): warning C4154:  удаление массива; выполнено преобразование к указателю
-G:\project\Client\Client\Client.cpp(232,11): warning C4101:  buf: неиспользованная локальная переменная
   Client.vcxproj -> G:\project\Client\Debug\Client.exe
