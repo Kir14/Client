@@ -26,8 +26,9 @@ TCHAR clean_message[1024];
 HANDLE hThr;
 static HWND hChild;
 
-WCHAR name[100], server_ip[100];
-UINT server_port;
+WCHAR name[100] = L"";
+WCHAR server_ip[100] = L"";
+UINT server_port = 0;
 
 static std::vector<std::string> v;
 
@@ -98,14 +99,16 @@ void GetMessageFromServer()
 		int result = recv(Client, buffer, 1024, 0);
 		if (result > 0)
 		{
+			//можно удалить
 			while (buffer[i] != '\0')
 			{
 				clean_message[i] = (TCHAR)buffer[i];
 				i++;
 			}
 			clean_message[i++] = L'\0';
-
-			v.push_back(buffer); 
+			
+			
+			v.push_back(buffer);
 			InvalidateRect(hChild, NULL, 1);
 			UpdateWindow(hChild);
 		}
@@ -123,7 +126,7 @@ ATOM MyRegisterChildClass()
 	wcex.hInstance = hInst;
 	wcex.hCursor = LoadCursor(NULL, IDC_ARROW);
 	wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
-	wcex.lpszClassName =ChildClassName ;
+	wcex.lpszClassName = ChildClassName;
 	return RegisterClassEx(&wcex);
 }
 
@@ -209,7 +212,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			WS_VSCROLL | ES_LEFT | ES_MULTILINE | ES_AUTOVSCROLL | WS_BORDER,
 			0, 0, 0, 0, hWnd, (HMENU)1, hInst, NULL);*/
 		MyRegisterChildClass();
-		hChild = CreateWindow(ChildClassName , NULL, WS_CHILD | WS_VSCROLL | ES_LEFT | ES_MULTILINE | ES_AUTOVSCROLL |
+		hChild = CreateWindow(ChildClassName, NULL, WS_CHILD | WS_VSCROLL | ES_LEFT | ES_MULTILINE | ES_AUTOVSCROLL |
 			WS_DLGFRAME | WS_VISIBLE, 0, 0, 0, 0, hWnd, NULL, hInst, NULL);
 
 		break;
@@ -227,19 +230,22 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	{
 		if (lParam == (LPARAM)hBtn)
 		{
-			TCHAR str[1024];
-			char buffer[1024];
-			GetWindowText(hEdit, str, 1024);
+			TCHAR str[924];
+			_tccpy(str, name);
+			char buffer[924];
+			GetWindowText(hEdit, str, 924);
 			SetWindowText(hEdit, L"");
 
 			WideCharToMultiByte(CP_ACP, 0, str, sizeof(str), buffer, sizeof(buffer), NULL, NULL);
 
-			int k = strlen(buffer);
-			buffer[k] = ('\0');
+			char message[1024];
+			WideCharToMultiByte(CP_ACP, 0, name, sizeof(name), message, sizeof(message), NULL, NULL);
+			strcat_s(message, ": ");
+			strcat_s(message, buffer);
 
 			////ООООЧЧЧЕЕЕННННЬЬЬЬ    ИНТЕРЕСНО/////
 			////////////////////////////////////////////////////////
-			if (SOCKET_ERROR == (send(Client, buffer, 1024, 0)))
+			if (SOCKET_ERROR == (send(Client, message, 1024, 0)))
 			{
 				// Error...
 
@@ -334,27 +340,39 @@ INT_PTR CALLBACK Login(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 		{
 			int result;
 		case IDOK:
+
 			GetDlgItemText(hDlg, IDC_EDIT_NAME, name, 100);
 			GetDlgItemText(hDlg, IDC_EDIT_IP, server_ip, 100);//"127.0.0.1"
-			server_port =  GetDlgItemInt(hDlg, IDC_EDIT_PORT,NULL,FALSE);//8488
-			struct sockaddr_in peer;
-			peer.sin_family = AF_INET;
-			peer.sin_port = htons(server_port);
-			InetPton(AF_INET, server_ip, &peer.sin_addr.s_addr);
-
-			Client = socket(AF_INET, SOCK_STREAM, 0);
-			result = connect(Client, (sockaddr*)& peer, sizeof(peer));
-			if (result)
+			server_port = GetDlgItemInt(hDlg, IDC_EDIT_PORT, NULL, FALSE);//8488
+			if (!_tccmp(name, L"") || !_tccmp(server_ip, L"") || server_port == 0)
 			{
-				perror("Error calling connect");
-				return 0;
+				SetDlgItemText(hDlg, IDC_ERROR, L"Enter true data");
+				break;
 			}
-			else
+			try {
+				struct sockaddr_in peer;
+				peer.sin_family = AF_INET;
+				peer.sin_port = htons(server_port);
+				InetPton(AF_INET, server_ip, &peer.sin_addr.s_addr);
+				Client = socket(AF_INET, SOCK_STREAM, 0);
+				result = connect(Client, (sockaddr*)& peer, sizeof(peer));
+				if (result)
+				{
+					SetDlgItemText(hDlg, IDC_ERROR, L"Error calling connect");
+					break;
+				}
+				else
+				{
+					char buffer[100];
+					WideCharToMultiByte(CP_ACP, 0, name, sizeof(name), buffer, sizeof(buffer), NULL, NULL);
+					send(Client, buffer, 100, 0);
+					hThr = CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)GetMessageFromServer, NULL, NULL, NULL);
+				}
+			}
+			catch(...)
 			{
-				char buffer[100];
-				WideCharToMultiByte(CP_ACP, 0, name, sizeof(name), buffer, sizeof(buffer), NULL, NULL);
-				send(Client, buffer, 100, 0);
-				hThr = CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)GetMessageFromServer, NULL, NULL, NULL);
+				SetDlgItemText(hDlg, IDC_ERROR, L"Error calling connect");
+				break;
 			}
 
 			EndDialog(hDlg, LOWORD(wParam));
@@ -390,12 +408,12 @@ LRESULT CALLBACK ChildProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam
 
 		break;
 	case WM_PAINT:
-		
+
 		hdc = BeginPaint(hWnd, &ps);
 		for (y = 0, it = v.begin(); it < v.end(); ++it, y += LineHeight)
 		{
 			char buf[1024];
-			strcpy_s(buf, 1024 , it->c_str());
+			strcpy_s(buf, 1024, it->c_str());
 			TextOutA(hdc, 0, y, buf, it->length());
 		}
 		EndPaint(hWnd, &ps);
