@@ -30,7 +30,7 @@ WCHAR name[100] = L"";
 WCHAR server_ip[100] = L"";
 UINT server_port = 0;
 
-static std::vector<std::string> v;
+static std::vector<std::string> chat;
 
 TCHAR ChildClassName[MAX_LOADSTRING] = _T("WinChild");
 
@@ -108,7 +108,7 @@ void GetMessageFromServer()
 			clean_message[i++] = L'\0';
 			
 			
-			v.push_back(buffer);
+			chat.push_back(buffer);
 			InvalidateRect(hChild, NULL, 1);
 			UpdateWindow(hChild);
 		}
@@ -197,8 +197,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 //
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-
-
+	
 	switch (message)
 	{
 	case WM_CREATE:
@@ -212,8 +211,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			WS_VSCROLL | ES_LEFT | ES_MULTILINE | ES_AUTOVSCROLL | WS_BORDER,
 			0, 0, 0, 0, hWnd, (HMENU)1, hInst, NULL);*/
 		MyRegisterChildClass();
-		hChild = CreateWindow(ChildClassName, NULL, WS_CHILD | WS_VSCROLL | ES_LEFT | ES_MULTILINE | ES_AUTOVSCROLL |
-			WS_DLGFRAME | WS_VISIBLE, 0, 0, 0, 0, hWnd, NULL, hInst, NULL);
+		hChild = CreateWindow(ChildClassName, NULL, WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_LEFT | 
+			ES_MULTILINE | ES_AUTOVSCROLL,
+			0, 0, 0, 0, hWnd, NULL, hInst, NULL);
 
 		break;
 	case WM_SIZE:
@@ -223,7 +223,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 		//MoveWindow(hText, 0, 0, LOWORD(lParam), HIWORD(lParam)-100, TRUE);
 
-		MoveWindow(hChild, 0, 0, LOWORD(lParam), HIWORD(lParam) - 100, TRUE);
+		MoveWindow(hChild, 0, 0, LOWORD(lParam)-100, HIWORD(lParam) - 100, TRUE);
 
 		break;
 	case WM_COMMAND:
@@ -270,7 +270,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			TerminateThread(hThr, 0);
 			shutdown(Client, 0);
 			closesocket(Client);
-			v.clear();
+			chat.clear();
 			DestroyWindow(hWnd);
 			break;
 		default:
@@ -397,27 +397,61 @@ LRESULT CALLBACK ChildProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam
 	HDC hdc;
 	const int LineHeight = 16;
 	std::vector<std::string>::iterator it;
-	int y;
+	int y, k;
+	static int n, length, sx, sy, cx, iVscrollPos, COUNT, MAX_WIDTH;
+	static SIZE size = { 8, 16 }; //Ширина и высота символа
 
 	switch (message)
 	{
 	case WM_CREATE:
-		v.push_back("Hello first line");
+		SendMessage(hWnd, WM_SIZE, 0, sy << 16 | sx);
+		InvalidateRect(hWnd, NULL, TRUE);
+		break;
+	case WM_SIZE:
+		n = chat.size();
+		sx = LOWORD(lParam);
+		sy = HIWORD(lParam);
+		k = n - sy / size.cy;
+		if (k > 0) COUNT = k; else COUNT = iVscrollPos = 0;
+		SetScrollRange(hWnd, SB_VERT, 0, COUNT, FALSE);
+		SetScrollPos(hWnd, SB_VERT, iVscrollPos, TRUE);
+		
 		break;
 	case WM_LBUTTONDOWN:
 
 		break;
+	
+	case WM_VSCROLL:
+		switch (LOWORD(wParam))
+		{
+		case SB_LINEUP: iVscrollPos--; break;
+		case SB_LINEDOWN: iVscrollPos++; break;
+		case SB_PAGEUP: iVscrollPos -= sy / size.cy; break;
+		case SB_PAGEDOWN: iVscrollPos += sy / size.cy; break;
+		case SB_THUMBPOSITION: iVscrollPos = HIWORD(wParam); break;
+		}
+		iVscrollPos = max(0, min(iVscrollPos, COUNT));
+		if (iVscrollPos != GetScrollPos(hWnd, SB_VERT))
+		{
+			SetScrollPos(hWnd, SB_VERT, iVscrollPos, TRUE);
+			InvalidateRect(hWnd, NULL, TRUE);
+		}
+		break;
 	case WM_PAINT:
 
+		n = chat.size();
+		sx = LOWORD(lParam);
+		sy = HIWORD(lParam);
+		k = n - sy / size.cy;
+		if (k > 0) COUNT = k; else COUNT = iVscrollPos = 0;
+		SetScrollRange(hWnd, SB_VERT, 0, COUNT, FALSE);
+		SetScrollPos(hWnd, SB_VERT, iVscrollPos, TRUE);
+		
 		hdc = BeginPaint(hWnd, &ps);
-		for (y = 0, it = v.begin(); it < v.end(); ++it, y += LineHeight)
-		{
-			char buf[1024];
-			strcpy_s(buf, 1024, it->c_str());
-			TextOutA(hdc, 0, y, buf, it->length());
-		}
+		for (y = 0, it = chat.begin() + iVscrollPos; it != chat.end() && y < sy; ++it, y += size.cy)
+			
+				TextOutA(hdc, 0, y, it->data(), it->length());
 		EndPaint(hWnd, &ps);
-
 		break;
 	default: return DefWindowProc(hWnd, message, wParam, lParam);
 	}
