@@ -201,7 +201,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		hEdit = CreateWindow(L"Edit", NULL, WS_CHILD | WS_VISIBLE |
 			WS_VSCROLL | ES_LEFT | ES_MULTILINE | ES_AUTOVSCROLL | WS_BORDER,
 			0, 0, 0, 0, hWnd, (HMENU)1, hInst, NULL);
-		hBtn = CreateWindow(L"Button", L"Отправить",
+		hBtn = CreateWindow(L"Button", L"Send",
 			WS_CHILD | WS_VISIBLE | WS_BORDER,
 			0, 0, 0, 0, hWnd, (HMENU)1, hInst, NULL);
 		hText = CreateWindow(L"Edit", NULL, WS_CHILD | WS_VISIBLE | ES_READONLY |
