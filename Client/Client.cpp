@@ -30,9 +30,9 @@ WCHAR name[100] = L"";
 WCHAR server_ip[100] = L"";
 UINT server_port = 0;
 
-static std::vector<std::string> chat;
+//static std::vector<std::string> chat;
 
-TCHAR ChildClassName[MAX_LOADSTRING] = _T("WinChild");
+//TCHAR ChildClassName[MAX_LOADSTRING] = _T("WinChild");
 
 // Отправить объявления функций, включенных в этот модуль кода:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
@@ -42,6 +42,8 @@ INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 
 INT_PTR CALLBACK    Login(HWND, UINT, WPARAM, LPARAM);
 LRESULT CALLBACK ChildProc(HWND, UINT, WPARAM, LPARAM);
+void AppendText(HWND, LPCTSTR);
+
 
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
@@ -99,18 +101,13 @@ void GetMessageFromServer()
 		int result = recv(Client, buffer, 1024, 0);
 		if (result > 0)
 		{
-			//можно удалить
-			while (buffer[i] != '\0')
-			{
-				clean_message[i] = (TCHAR)buffer[i];
-				i++;
-			}
-			clean_message[i++] = L'\0';
-			
-			
-			chat.push_back(buffer);
+			TCHAR message[1024];
+			MultiByteToWideChar(CP_ACP, 0, buffer, 1024, message, 1024);
+			wcscat_s(message, L"\n");
+			AppendText(hText, message);
+			/*chat.push_back(buffer);
 			InvalidateRect(hChild, NULL, 1);
-			UpdateWindow(hChild);
+			UpdateWindow(hChild);*/
 		}
 
 	}
@@ -118,7 +115,7 @@ void GetMessageFromServer()
 }
 
 
-ATOM MyRegisterChildClass()
+/*ATOM MyRegisterChildClass()
 {
 	WNDCLASSEX wcex = { 0 };
 	wcex.cbSize = sizeof(WNDCLASSEX);
@@ -128,7 +125,7 @@ ATOM MyRegisterChildClass()
 	wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
 	wcex.lpszClassName = ChildClassName;
 	return RegisterClassEx(&wcex);
-}
+}*/
 
 //
 //  ФУНКЦИЯ: MyRegisterClass()
@@ -207,13 +204,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		hBtn = CreateWindow(L"Button", L"Отправить",
 			WS_CHILD | WS_VISIBLE | WS_BORDER,
 			0, 0, 0, 0, hWnd, (HMENU)1, hInst, NULL);
-		/*hText = CreateWindow(L"Edit", NULL, WS_CHILD | WS_VISIBLE | ES_READONLY |
+		hText = CreateWindow(L"Edit", NULL, WS_CHILD | WS_VISIBLE | ES_READONLY |
 			WS_VSCROLL | ES_LEFT | ES_MULTILINE | ES_AUTOVSCROLL | WS_BORDER,
-			0, 0, 0, 0, hWnd, (HMENU)1, hInst, NULL);*/
-		MyRegisterChildClass();
+			0, 0, 0, 0, hWnd, (HMENU)1, hInst, NULL);
+		/*MyRegisterChildClass();
 		hChild = CreateWindow(ChildClassName, NULL, WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_LEFT | 
 			ES_MULTILINE | ES_AUTOVSCROLL,
-			0, 0, 0, 0, hWnd, NULL, hInst, NULL);
+			0, 0, 0, 0, hWnd, NULL, hInst, NULL);*/
 
 		break;
 	case WM_SIZE:
@@ -221,9 +218,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		MoveWindow(hEdit, 0, HIWORD(lParam) - 100, LOWORD(lParam) - 100, 100, TRUE);
 		MoveWindow(hBtn, LOWORD(lParam) - 100, HIWORD(lParam) - 100, 100, 50, TRUE);
 
-		//MoveWindow(hText, 0, 0, LOWORD(lParam), HIWORD(lParam)-100, TRUE);
+		MoveWindow(hText, 0, 0, LOWORD(lParam), HIWORD(lParam)-100, TRUE);
 
-		MoveWindow(hChild, 0, 0, LOWORD(lParam)-100, HIWORD(lParam) - 100, TRUE);
+		//MoveWindow(hChild, 0, 0, LOWORD(lParam)-100, HIWORD(lParam) - 100, TRUE);
 
 		break;
 	case WM_COMMAND:
@@ -270,7 +267,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			TerminateThread(hThr, 0);
 			shutdown(Client, 0);
 			closesocket(Client);
-			chat.clear();
+			//chat.clear();
 			DestroyWindow(hWnd);
 			break;
 		default:
@@ -391,7 +388,7 @@ INT_PTR CALLBACK Login(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 
 
 
-LRESULT CALLBACK ChildProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+/*LRESULT CALLBACK ChildProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	PAINTSTRUCT ps;
 	HDC hdc;
@@ -456,6 +453,12 @@ LRESULT CALLBACK ChildProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam
 	default: return DefWindowProc(hWnd, message, wParam, lParam);
 	}
 	return 0;
+}*/
+
+
+void AppendText(HWND hEditWnd, LPCTSTR Text)
+{
+	int idx = GetWindowTextLength(hEditWnd);
+	SendMessage(hEditWnd, EM_SETSEL, (WPARAM)idx, (LPARAM)idx);
+	SendMessage(hEditWnd, EM_REPLACESEL, 0, (LPARAM)Text);
 }
-
-
