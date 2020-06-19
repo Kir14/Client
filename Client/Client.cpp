@@ -239,6 +239,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			WideCharToMultiByte(CP_ACP, 0, name, sizeof(name), message, sizeof(message), NULL, NULL);
 			strcat_s(message, ": ");
 			strcat_s(message, buffer);
+			strcat_s(message, "\n");
 
 			////ООООЧЧЧЕЕЕННННЬЬЬЬ    ИНТЕРЕСНО/////
 			////////////////////////////////////////////////////////
@@ -356,15 +357,29 @@ INT_PTR CALLBACK Login(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 				if (result)
 				{
 					SetDlgItemText(hDlg, IDC_ERROR, L"Error calling connect");
-					break;
+					
 				}
 				else
 				{
 					char buffer[100];
 					WideCharToMultiByte(CP_ACP, 0, name, sizeof(name), buffer, sizeof(buffer), NULL, NULL);
 					send(Client, buffer, 100, 0);
-					hThr = CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)GetMessageFromServer, NULL, NULL, NULL);
+					memset(buffer, 0, 100);
+					recv(Client, buffer, 100, 0);
+					SetWindowTextA(hText, "");
+					if (!strcmp(buffer, "-1"))
+					{
+						SetDlgItemText(hDlg, IDC_ERROR, L"the name is used \n come up with another name");
+						break;
+					}
+					else
+					{
+						hThr = CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)GetMessageFromServer, NULL, NULL, NULL);
+						EndDialog(hDlg, LOWORD(wParam));
+						return (INT_PTR)TRUE;
+					}
 				}
+				break;
 			}
 			catch(...)
 			{
