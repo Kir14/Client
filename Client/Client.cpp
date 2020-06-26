@@ -43,6 +43,7 @@ INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    Login(HWND, UINT, WPARAM, LPARAM);
 LRESULT CALLBACK ChildProc(HWND, UINT, WPARAM, LPARAM);
 void AppendText(HWND, LPCTSTR);
+int trim(char[]);
 
 
 
@@ -93,7 +94,6 @@ void GetMessageFromServer()
 
 	char buffer[1024];
 
-
 	for (;;)
 	{
 		int i = 0;
@@ -103,7 +103,6 @@ void GetMessageFromServer()
 		{
 			TCHAR message[1024];
 			MultiByteToWideChar(CP_ACP, 0, buffer, 1024, message, 1024);
-			wcscat_s(message, L"\n");
 			AppendText(hText, message);
 			/*chat.push_back(buffer);
 			InvalidateRect(hChild, NULL, 1);
@@ -229,27 +228,32 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		{
 			TCHAR str[924];
 			_tccpy(str, name);
+			std::string str1;
 			char buffer[924];
-			GetWindowText(hEdit, str, 924);
+			//GetWindowText(hEdit, str, 924);
+			GetWindowTextA(hEdit, buffer, 924);
 			SetWindowText(hEdit, L"");
 
-			WideCharToMultiByte(CP_ACP, 0, str, sizeof(str), buffer, sizeof(buffer), NULL, NULL);
+			//WideCharToMultiByte(CP_ACP, 0, str, sizeof(str), buffer, sizeof(buffer), NULL, NULL);
 
-			char message[1024];
+			char message[1024]="";
 			WideCharToMultiByte(CP_ACP, 0, name, sizeof(name), message, sizeof(message), NULL, NULL);
-			strcat_s(message, ": ");
-			strcat_s(message, buffer);
-			strcat_s(message, "\n");
-
-			////ООООЧЧЧЕЕЕННННЬЬЬЬ    ИНТЕРЕСНО/////
-			////////////////////////////////////////////////////////
-			if (SOCKET_ERROR == (send(Client, message, 1024, 0)))
+			if (trim(buffer) > 0)
 			{
-				// Error...
+				
+				strcat_s(message, ": ");
+				strcat_s(message, buffer);
+				strcat_s(message, "\r\n");
 
-				// ...
+				////ООООЧЧЧЕЕЕННННЬЬЬЬ    ИНТЕРЕСНО/////
+				////////////////////////////////////////////////////////
+				if (SOCKET_ERROR == (send(Client, message, 1024, 0)))
+				{
+					// Error...
+
+					// ...
+				}
 			}
-
 
 
 		}
@@ -374,6 +378,7 @@ INT_PTR CALLBACK Login(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 					}
 					else
 					{
+						AppendText(hText, L"Welcom to the chat\r\n");
 						hThr = CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)GetMessageFromServer, NULL, NULL, NULL);
 						EndDialog(hDlg, LOWORD(wParam));
 						return (INT_PTR)TRUE;
@@ -476,4 +481,43 @@ void AppendText(HWND hEditWnd, LPCTSTR Text)
 	int idx = GetWindowTextLength(hEditWnd);
 	SendMessage(hEditWnd, EM_SETSEL, (WPARAM)idx, (LPARAM)idx);
 	SendMessage(hEditWnd, EM_REPLACESEL, 0, (LPARAM)Text);
+}
+
+int trim(char str[])
+{
+	/*std::string s(str);
+	int i = 0, j = s.size();
+	while (s[i] == ' ' || s[i] == '\t' || s[i] == '\r' || s[i] == '\n') ++i;
+	while (s[j] == ' ' || s[j] == '\t' || s[j] == '\r' || s[j] == '\n') --j;
+	
+	strcpy_s(str,924,s.substr(i, s.size() - (i + (s.size() - j))).c_str());
+	return s.size();*/
+
+
+	// удаляем пробелы и табы с начала строки:
+	int i = 0, j;
+	while ((str[i] == ' ') || (str[i] == '\t') || (str[i] == '\r') || (str[i] == '\n'))
+	{
+		i++;
+	}
+	if (i > 0)
+	{
+		for (j = 0; j < strlen(str); j++)
+		{
+			str[j] = str[j + i];
+		}
+		str[j] = '\0';
+	}
+
+	// удаляем пробелы и табы с конца строки:
+	i = strlen(str) - 1;
+	while ((str[i] == ' ') || (str[i] == '\t') || (str[i] == '\r') || (str[i] == '\n'))
+	{
+		i--;
+	}
+	if (i < (strlen(str) - 1))
+	{
+		str[i + 1] = '\0';
+	}
+	return i;
 }
