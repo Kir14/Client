@@ -25,6 +25,7 @@ static HWND hBtn;
 TCHAR clean_message[1024];
 HANDLE hThr;
 static HWND hChild;
+HANDLE g_ClientStopEvent = INVALID_HANDLE_VALUE;
 
 WCHAR name[100] = L"";
 WCHAR server_ip[100] = L"";
@@ -94,7 +95,7 @@ void GetMessageFromServer()
 
 	char buffer[1024];
 
-	for (;;)
+	while (WaitForSingleObject(g_ClientStopEvent, 0) != WAIT_OBJECT_0)
 	{
 		int i = 0;
 		memset(buffer, 0, 1024);
@@ -193,7 +194,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 //
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-	
+
 	switch (message)
 	{
 	case WM_CREATE:
@@ -207,17 +208,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			WS_VSCROLL | ES_LEFT | ES_MULTILINE | ES_AUTOVSCROLL | WS_BORDER,
 			0, 0, 0, 0, hWnd, (HMENU)1, hInst, NULL);
 		/*MyRegisterChildClass();
-		hChild = CreateWindow(ChildClassName, NULL, WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_LEFT | 
+		hChild = CreateWindow(ChildClassName, NULL, WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_LEFT |
 			ES_MULTILINE | ES_AUTOVSCROLL,
 			0, 0, 0, 0, hWnd, NULL, hInst, NULL);*/
-
 		break;
 	case WM_SIZE:
 		HIWORD(lParam);
 		MoveWindow(hEdit, 0, HIWORD(lParam) - 100, LOWORD(lParam) - 100, 100, TRUE);
 		MoveWindow(hBtn, LOWORD(lParam) - 100, HIWORD(lParam) - 100, 100, 50, TRUE);
 
-		MoveWindow(hText, 0, 0, LOWORD(lParam), HIWORD(lParam)-100, TRUE);
+		MoveWindow(hText, 0, 0, LOWORD(lParam), HIWORD(lParam) - 100, TRUE);
 
 		//MoveWindow(hChild, 0, 0, LOWORD(lParam)-100, HIWORD(lParam) - 100, TRUE);
 
@@ -236,11 +236,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 			//WideCharToMultiByte(CP_ACP, 0, str, sizeof(str), buffer, sizeof(buffer), NULL, NULL);
 
-			char message[1024]="";
+			char message[1024] = "";
 			WideCharToMultiByte(CP_ACP, 0, name, sizeof(name), message, sizeof(message), NULL, NULL);
 			if (trim(buffer) > 0)
 			{
-				
+
 				strcat_s(message, ": ");
 				strcat_s(message, buffer);
 				strcat_s(message, "\r\n");
@@ -265,13 +265,27 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		case ID_MENU_LOGIN:
 			DialogBox(hInst, MAKEINTRESOURCE(IDD_LOGIN), hWnd, Login);
 			break;
+		case ID_MENU_DISCONNECT:
+
+			SetEvent(g_ClientStopEvent);
+			CloseHandle(g_ClientStopEvent);
+			shutdown(Client, 0);
+			closesocket(Client);
+			_tccpy(name, L"");
+			_tccpy(server_ip, L"");
+			server_port = 0;
+			AppendText(hText, L"Disconnect from Server");
+			break;
 		case IDM_ABOUT:
 			DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
 			break;
 		case IDM_EXIT:
-			TerminateThread(hThr, 0);
-			shutdown(Client, 0);
-			closesocket(Client);
+			if (server_port != 0)
+			{
+				CloseHandle(g_ClientStopEvent);
+				shutdown(Client, 0);
+				closesocket(Client);
+			}
 			//chat.clear();
 			DestroyWindow(hWnd);
 			break;
@@ -293,6 +307,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	}
 	break;
 	case WM_DESTROY:
+		if (server_port != 0)
+		{
+			CloseHandle(g_ClientStopEvent);
+			shutdown(Client, 0);
+			closesocket(Client);
+		}
 		PostQuitMessage(0);
 		break;
 	default:
@@ -343,6 +363,8 @@ INT_PTR CALLBACK Login(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 			int result;
 		case IDOK:
 
+			SetDlgItemText(hDlg, IDC_ERROR, L"");
+
 			GetDlgItemText(hDlg, IDC_EDIT_NAME, name, 100);
 			GetDlgItemText(hDlg, IDC_EDIT_IP, server_ip, 100);//"127.0.0.1"
 			server_port = GetDlgItemInt(hDlg, IDC_EDIT_PORT, NULL, FALSE);//8488
@@ -351,46 +373,50 @@ INT_PTR CALLBACK Login(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 				SetDlgItemText(hDlg, IDC_ERROR, L"Enter true data");
 				break;
 			}
-			try {
-				struct sockaddr_in peer;
-				peer.sin_family = AF_INET;
-				peer.sin_port = htons(server_port);
-				InetPton(AF_INET, server_ip, &peer.sin_addr.s_addr);
-				Client = socket(AF_INET, SOCK_STREAM, 0);
-				result = connect(Client, (sockaddr*)& peer, sizeof(peer));
-				if (result)
+
+			struct sockaddr_in peer;
+			peer.sin_family = AF_INET;
+			peer.sin_port = htons(server_port);
+			InetPton(AF_INET, server_ip, &peer.sin_addr.s_addr);
+			Client = socket(AF_INET, SOCK_STREAM, 0);
+
+			result = connect(Client, (sockaddr*)& peer, sizeof(peer));
+			if (result)
+			{
+				wchar_t error[10] = L"";
+				_itow_s(GetLastError(), error, 10);
+				wchar_t buffer[100] = L"Can't connect to the server, winsock error: ";
+				wcscat_s(buffer, error);
+				SetDlgItemText(hDlg, IDC_ERROR, buffer);
+
+			}
+			else
+			{
+				char buffer[100];
+				WideCharToMultiByte(CP_ACP, 0, name, sizeof(name), buffer, sizeof(buffer), NULL, NULL);
+				send(Client, buffer, 100, 0);
+				memset(buffer, 0, 100);
+				recv(Client, buffer, 100, 0);
+				SetWindowTextA(hText, "");
+				if (!strcmp(buffer, "-1"))
 				{
-					SetDlgItemText(hDlg, IDC_ERROR, L"Error calling connect");
-					
+					wchar_t buffer[100] = L"Can't connect to the server, name ";
+					wcscat_s(buffer, name);
+					wcscat_s(buffer, L" already in use");
+					SetDlgItemText(hDlg, IDC_ERROR, buffer);
+					break;
 				}
 				else
 				{
-					char buffer[100];
-					WideCharToMultiByte(CP_ACP, 0, name, sizeof(name), buffer, sizeof(buffer), NULL, NULL);
-					send(Client, buffer, 100, 0);
-					memset(buffer, 0, 100);
-					recv(Client, buffer, 100, 0);
-					SetWindowTextA(hText, "");
-					if (!strcmp(buffer, "-1"))
-					{
-						SetDlgItemText(hDlg, IDC_ERROR, L"the name is used \n come up with another name");
-						break;
-					}
-					else
-					{
-						AppendText(hText, L"Welcom to the chat\r\n");
-						hThr = CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)GetMessageFromServer, NULL, NULL, NULL);
-						EndDialog(hDlg, LOWORD(wParam));
-						return (INT_PTR)TRUE;
-					}
+					SetWindowText(hText, L"Connection success\r\n");
+					g_ClientStopEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+					hThr = CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)GetMessageFromServer, NULL, NULL, NULL);
+					EndDialog(hDlg, LOWORD(wParam));
+					return (INT_PTR)TRUE;
 				}
-				break;
 			}
-			catch(...)
-			{
-				SetDlgItemText(hDlg, IDC_ERROR, L"Error calling connect");
-				break;
-			}
+			break;
+
 
 			EndDialog(hDlg, LOWORD(wParam));
 			return (INT_PTR)TRUE;
@@ -432,12 +458,12 @@ INT_PTR CALLBACK Login(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 		if (k > 0) COUNT = k; else COUNT = iVscrollPos = 0;
 		SetScrollRange(hWnd, SB_VERT, 0, COUNT, FALSE);
 		SetScrollPos(hWnd, SB_VERT, iVscrollPos, TRUE);
-		
+
 		break;
 	case WM_LBUTTONDOWN:
 
 		break;
-	
+
 	case WM_VSCROLL:
 		switch (LOWORD(wParam))
 		{
@@ -463,10 +489,10 @@ INT_PTR CALLBACK Login(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 		if (k > 0) COUNT = k; else COUNT = iVscrollPos = 0;
 		SetScrollRange(hWnd, SB_VERT, 0, COUNT, FALSE);
 		SetScrollPos(hWnd, SB_VERT, iVscrollPos, TRUE);
-		
+
 		hdc = BeginPaint(hWnd, &ps);
 		for (y = 0, it = chat.begin() + iVscrollPos; it != chat.end() && y < sy; ++it, y += size.cy)
-			
+
 				TextOutA(hdc, 0, y, it->data(), it->length());
 		EndPaint(hWnd, &ps);
 		break;
@@ -489,7 +515,7 @@ int trim(char str[])
 	int i = 0, j = s.size();
 	while (s[i] == ' ' || s[i] == '\t' || s[i] == '\r' || s[i] == '\n') ++i;
 	while (s[j] == ' ' || s[j] == '\t' || s[j] == '\r' || s[j] == '\n') --j;
-	
+
 	strcpy_s(str,924,s.substr(i, s.size() - (i + (s.size() - j))).c_str());
 	return s.size();*/
 

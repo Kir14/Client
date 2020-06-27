@@ -1,4 +1,4 @@
 ﻿  Client.cpp
-G:\project\Client\Client\Client.cpp(505,17): warning C4018:  <: несоответствие типов со знаком и без знака
-G:\project\Client\Client\Client.cpp(518,8): warning C4018:  <: несоответствие типов со знаком и без знака
+G:\project\Client\Client\Client.cpp(531,17): warning C4018:  <: несоответствие типов со знаком и без знака
+G:\project\Client\Client\Client.cpp(544,8): warning C4018:  <: несоответствие типов со знаком и без знака
   Client.vcxproj -> G:\project\Client\Debug\Client.exe

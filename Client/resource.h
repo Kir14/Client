@@ -19,6 +19,7 @@
 #define IDC_EDIT_IP                     1001
 #define IDC_EDIT_PORT                   1002
 #define IDC_ERROR                       1005
+#define ID_MENU_DISCONNECT              32774
 #define IDC_STATIC                      -1
 
 // Next default values for new objects
@@ -27,7 +28,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NO_MFC                     1
 #define _APS_NEXT_RESOURCE_VALUE        131
-#define _APS_NEXT_COMMAND_VALUE         32774
+#define _APS_NEXT_COMMAND_VALUE         32775
 #define _APS_NEXT_CONTROL_VALUE         1006
 #define _APS_NEXT_SYMED_VALUE           110
 #endif
